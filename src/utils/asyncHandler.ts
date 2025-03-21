@@ -10,8 +10,23 @@ const asyncHandler = (fn:RequestHandler) => async (req:Request, res:Response, ne
   } catch (error ) {
     if(error instanceof ApiError) {
        res.status(error.statusCode).json({
-          message:error.message
+        status:error.statusCode,
+        success:error.success,
+        message:error.message
        })
+    }else if(error instanceof Error) {
+      res.status(400).json({
+        
+         message:error.message
+         
+      })
+    }else {
+      res.status(500).json({
+        message:"Internal Server errror"
+      })
     }
   }
 };
+
+
+export default asyncHandler

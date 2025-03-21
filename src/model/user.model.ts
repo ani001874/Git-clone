@@ -1,18 +1,24 @@
-import { Document, model, Schema, ValidatorProps } from "mongoose";
+import { Document, Model, model, Schema, ValidatorProps } from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-interface IUser extends Document {
+export interface IUser extends Document {
   fullName: string;
   email: string;
   password: string;
   username: string;
   profilePic: string;
+ 
+}
+
+interface IUserMethods {
   isPasswordCorrect: (password: string) => Promise<boolean>;
   generateAccessToken: () => string;
 }
 
-const userSchema = new Schema<IUser>(
+type UserModel = Model<IUser,{},IUserMethods>
+
+const userSchema = new Schema<IUser,UserModel,IUserMethods>(
   {
     fullName: {
       type: String,
@@ -90,5 +96,9 @@ userSchema.methods.generateAccessToken = function (): string {
     } as jwt.SignOptions
   );
 };
+
+
+
+export const User = model<IUser,UserModel>("User",userSchema)
 
 
