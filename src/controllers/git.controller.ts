@@ -1,8 +1,9 @@
 import path from "path";
 import fs from "node:fs/promises";
 import yargs from "yargs";
-import stageData from "../../minigit/stages/stages.json"
-import { readFile } from "node:fs";
+
+import crypto from "crypto";
+import { json } from "node:stream/consumers";
 
 interface stageArrType {
   $id: number;
@@ -22,7 +23,6 @@ const findAllDir = async (rootDir: string, stageArr: stageArrType[]) => {
     const location: string = path.join(rootDir, dir[i]);
     let dirPath = await fs.stat(location);
     if (dirPath.isFile()) {
-      const fileContent = await fs.readFile(location);
       stageArr.push({
         $id: Date.now(),
         fileName: dir[i],
@@ -42,27 +42,13 @@ const findAllDir = async (rootDir: string, stageArr: stageArrType[]) => {
 
 const createStageJson = async (stageArr: stageArrType[]) => {
   const convertJson: string = JSON.stringify(stageArr);
+  const stageDir = path.join(rootDir, "minigit", "stages");
+
   try {
-    const stages = await fs.mkdir(path.join(rootDir, "minigit", "stages"), {
-      recursive: true,
-    });
-
-    
-    
-      const stageFilePath = path.join(rootDir, "minigit", "stages", "stages.json");
-      const fileExists = await fs
-        .access(stageFilePath)
-        .then(() => true)
-        .catch(() => false);
-
-      if (!fileExists) {
-        await fs.writeFile(stageFilePath, convertJson);
-     
-    } else {
-      throw new Error("Folder not found");
-    }
+    await fs.access(stageDir);
+    await fs.writeFile(path.join(stageDir, "stages.json"), convertJson);
   } catch (error) {
-    console.log(error);
+    await fs.mkdir(stageDir);
   }
 };
 
@@ -76,27 +62,14 @@ const initiallizeRepo = async () => {
   }
 };
 
-// const readStageJson = async() => {
-//   const fileLocation = path.join(rootDir,"minigit","stages","stages.json")
-//   console.log(fileLocation)
-//   // const fileData = await fs.readFile(JSON.parse(fileLocation),"utf-8" )
-//   // console.log(fileData)
-// }
-
 const stageRepo = async (argv: yargs.ArgumentsCamelCase) => {
-
   // let x =  await  readStageJson()
-    for(let x of stageData) {
-      const data = await fs.readFile(x.fullPath,"utf-8")
-      console.log(data)
-    }
+
   let allDir = await fs.readdir(targetDir);
 
- 
   const files: string[] = Array.isArray(argv.filename)
     ? argv.filename
     : [argv.filename as string];
-
 
   let stageArr: stageArrType[] = [];
 
@@ -106,13 +79,10 @@ const stageRepo = async (argv: yargs.ArgumentsCamelCase) => {
     return;
   }
 
-
-
   for (const file of files) {
     if (allDir.includes(file)) {
       const fileLocation: string = path.join(targetDir, file);
       const fileData = await fs.readFile(fileLocation);
-      console.log(fileData);
       stageArr.push({
         $id: Date.now(),
         fileName: file,
@@ -124,7 +94,42 @@ const stageRepo = async (argv: yargs.ArgumentsCamelCase) => {
   createStageJson(stageArr);
 };
 
+// create commit
+
+const createCommit = async (message: string) => {
+  const commitDir = path.join(rootDir, "minigit", "commits");
+  const stagePath = path.join(rootDir, "minigit", "stages", "stages.json");
 
 
 
-export { initiallizeRepo, stageRepo };
+try {
+    await fs.mkdir(commitDir, { recursive: true });
+  
+    const jsonData = await fs.readFile(stagePath, "utf-8");
+  
+     if(!jsonData) {
+      throw new Error("File may be empty")
+     }
+    const stageData = JSON.parse(jsonData);
+  
+    for (let data of stageData) {
+      const fileContent = await fs.readFile(data.fullPath, "utf-8");
+      const commitObj = {
+        path: data.fullPath,
+        fileName: data.fileName,
+        timeStamp: new Date().toISOString(),
+        commitMsg: message,
+      };
+      const hashPath = crypto
+        .createHash("sha256")
+        .update(JSON.stringify(commitObj))
+        .digest("hex");
+      const commitPath = path.join(commitDir, hashPath);
+      await fs.writeFile(commitPath, JSON.stringify(fileContent, null, 2));
+    }
+} catch (error) {
+   console.log(error)
+}
+};
+
+export { initiallizeRepo, stageRepo, createCommit };
