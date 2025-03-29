@@ -11,7 +11,9 @@ app.use(cookieParser())
 
 
 import userRouter from './routes/user.routes'
+import gitRouter from "./routes/git.routes"
 
 app.use('/api/v1/users', userRouter)
+app.use("/api/v1/git",gitRouter )
 
 export default app
